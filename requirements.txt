@@ -1,0 +1,12 @@
+joblib==1.6.0
+matplotlib==3.11.2
+numpy==2.5.4
+pandas==3.0.6
+psycopg2-binary==2.9.13
+python-dotenv==1.2.4
+scikit-learn==1.9.1
+scipy==1.18.1
+shap==0.54.1
+SQLAlchemy==2.1.4
+streamlit==1.65.0
+xgboost==3.4.1
