@@ -1,5 +1,7 @@
 # Loan Portfolio Credit Risk
 
+**Live demo: [loan-portfolio-credit-risk-fa.streamlit.app](https://loan-portfolio-credit-risk-fa.streamlit.app/)**
+
 An end-to-end credit risk project on 2.26 million Lending Club loans (\$34 billion, 2007-2018). It predicts
 each loan's probability of default (PD), turns PD into an expected dollar loss, backtests the estimate
 against what actually happened, stress-tests the loans still running, and compares approval strategies.
@@ -78,8 +80,10 @@ portfolio.py                Portfolio page: filters, KPIs, live SQL charts
 score.py                    Score a Loan page: PD, expected loss, SHAP waterfall
 strategy.py                 Strategy & Stress Test page
 about.py                    About page: methods, results, limitations
-db.py                       Database connection (.env locally, st.secrets when deployed)
+db.py                       Database connection: PostgreSQL if configured, else the bundled snapshot
 load_to_cloud.py            Copies the app's summary tables to a cloud database
+export_snapshot.py          Exports the app's summary tables to app_data/ for the public demo
+app_data/                   Snapshot of the four summary tables the app reads
 models/pd_model.joblib      XGBoost pipeline, loss severity, recalibration
 docs/column_audit.csv       Every raw column with its type, missing %, example, and role
 ```
@@ -105,15 +109,17 @@ docs/column_audit.csv       Every raw column with its type, missing %, example, 
    streamlit run app.py
    ```
 
-## Deploy (Streamlit Community Cloud + Neon)
+## Deploy (Streamlit Community Cloud)
 
-The app only reads four small summary tables (a few thousand rows), so it fits a free cloud database.
+The app only reads four small summary tables (a few thousand rows). On
+[share.streamlit.io](https://share.streamlit.io), create an app from this repo with `app.py` as the main
+file and Python 3.13. That's all the public demo needs: with no database configured, the app loads
+`app_data/` into an in-memory SQLite database and runs the same SQL queries.
 
+To query PostgreSQL in the cloud instead:
 1. Add `CLOUD_DATABASE_URL=postgresql+psycopg2://...neon.tech/...?sslmode=require` to `.env`, then run
    `python load_to_cloud.py`.
-2. On [share.streamlit.io](https://share.streamlit.io), create an app from this repo with `app.py` as
-   the main file.
-3. Under **Settings → Secrets**, add:
+2. Under the app's **Settings → Secrets**, add:
    ```toml
    DATABASE_URL = "postgresql+psycopg2://...neon.tech/...?sslmode=require"
    ```

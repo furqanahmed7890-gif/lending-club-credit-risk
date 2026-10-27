@@ -64,9 +64,9 @@ st.write(
 stress_sql = """
 SELECT
     scenario,
-    ROUND((SUM(funded) / 1e9)::numeric, 2) AS funded_billions,
-    ROUND((SUM(expected_loss) / 1e9)::numeric, 2) AS expected_loss_billions,
-    ROUND((SUM(expected_loss) / SUM(funded) * 100)::numeric, 2) AS loss_rate_pct
+    ROUND(CAST(SUM(funded) / 1e9 AS NUMERIC), 2) AS funded_billions,
+    ROUND(CAST(SUM(expected_loss) / 1e9 AS NUMERIC), 2) AS expected_loss_billions,
+    ROUND(CAST(SUM(expected_loss) * 100.0 / SUM(funded) AS NUMERIC), 2) AS loss_rate_pct
 FROM stress_test
 GROUP BY scenario
 ORDER BY expected_loss_billions
@@ -85,7 +85,7 @@ grade_sql = """
 SELECT
     grade,
     scenario,
-    ROUND((expected_loss / funded * 100)::numeric, 2) AS loss_rate_pct
+    ROUND(CAST(expected_loss * 100.0 / funded AS NUMERIC), 2) AS loss_rate_pct
 FROM stress_test
 ORDER BY grade
 """

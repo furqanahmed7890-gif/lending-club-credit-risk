@@ -1,13 +1,13 @@
 import streamlit as st
 
-from db import run_query
+from db import data_source, run_query
 
 GRADES = list("ABCDEFG")
 
 st.title("Loan Portfolio Overview")
 st.write(
     "2.26 million Lending Club loans issued 2007-2018, as of the March 2019 snapshot. "
-    "Every number on this page is a live SQL query against PostgreSQL."
+    f"Every number on this page is a live SQL query against {data_source()}."
 )
 
 with st.sidebar:
@@ -21,7 +21,7 @@ if not terms or not grades:
     st.stop()
 
 params = {"start": years[0], "end": years[1], "terms": terms, "grades": grades}
-FILTER = "WHERE issue_year BETWEEN :start AND :end AND term = ANY(:terms) AND grade = ANY(:grades)"
+FILTER = "WHERE issue_year BETWEEN :start AND :end AND term IN :terms AND grade IN :grades"
 
 
 def show_data(data, sql):
@@ -34,8 +34,8 @@ kpi_sql = f"""
 SELECT
     SUM(loans) AS loans,
     SUM(funded) / 1e9 AS funded_billions,
-    SUM(defaults)::numeric / NULLIF(SUM(judged_loans), 0) * 100 AS default_rate_pct,
-    SUM(principal_loss) / NULLIF(SUM(judged_funded), 0) * 100 AS loss_rate_pct,
+    SUM(defaults) * 100.0 / NULLIF(SUM(judged_loans), 0) AS default_rate_pct,
+    SUM(principal_loss) * 100.0 / NULLIF(SUM(judged_funded), 0) AS loss_rate_pct,
     SUM(outstanding) / 1e9 AS outstanding_billions
 FROM loan_cube
 {FILTER}
@@ -62,9 +62,9 @@ with left:
 SELECT
     grade,
     SUM(judged_loans) AS matured_loans,
-    ROUND(SUM(defaults)::numeric / NULLIF(SUM(judged_loans), 0) * 100, 1) AS default_rate_pct,
-    ROUND((SUM(principal_loss) / NULLIF(SUM(judged_funded), 0) * 100)::numeric, 1) AS loss_rate_pct,
-    ROUND((SUM(rate_x_funded) / SUM(funded))::numeric, 1) AS avg_int_rate_pct
+    ROUND(CAST(SUM(defaults) * 100.0 / NULLIF(SUM(judged_loans), 0) AS NUMERIC), 1) AS default_rate_pct,
+    ROUND(CAST(SUM(principal_loss) * 100.0 / NULLIF(SUM(judged_funded), 0) AS NUMERIC), 1) AS loss_rate_pct,
+    ROUND(CAST(SUM(rate_x_funded) / SUM(funded) AS NUMERIC), 1) AS avg_int_rate_pct
 FROM loan_cube
 {FILTER}
 GROUP BY grade
@@ -87,7 +87,7 @@ SELECT
     issue_year,
     term,
     SUM(judged_loans) AS matured_loans,
-    ROUND(SUM(defaults)::numeric / NULLIF(SUM(judged_loans), 0) * 100, 1) AS default_rate_pct
+    ROUND(CAST(SUM(defaults) * 100.0 / NULLIF(SUM(judged_loans), 0) AS NUMERIC), 1) AS default_rate_pct
 FROM loan_cube
 {FILTER}
 GROUP BY issue_year, term
@@ -117,10 +117,10 @@ SELECT
     projected_loss_rate_pct,
     realized_loss_rate_pct
 FROM vintage_loss
-WHERE issue_year BETWEEN :start AND :end AND term = ANY(:terms) AND loans >= 1000
+WHERE issue_year BETWEEN :start AND :end AND term IN :terms AND loans >= 1000
 ORDER BY issue_year, term
 """
-    losses = run_query(loss_sql, params)
+    losses = run_query(loss_sql, {"start": years[0], "end": years[1], "terms": terms})
     chart = losses.pivot(index="issue_year", columns="term", values=["projected_loss_rate_pct", "realized_loss_rate_pct"])
     chart.columns = [f"{term}-month {'projected' if kind.startswith('projected') else 'realized'}" for kind, term in chart.columns]
     chart.index = chart.index.astype(str)
@@ -134,7 +134,7 @@ with right:
     volume_sql = f"""
 SELECT
     issue_year,
-    ROUND((SUM(funded) / 1e9)::numeric, 2) AS funded_billions,
+    ROUND(CAST(SUM(funded) / 1e9 AS NUMERIC), 2) AS funded_billions,
     SUM(loans) AS loans
 FROM loan_cube
 {FILTER}
@@ -153,8 +153,8 @@ purpose_sql = f"""
 SELECT
     purpose,
     SUM(judged_loans) AS matured_loans,
-    ROUND(SUM(defaults)::numeric / NULLIF(SUM(judged_loans), 0) * 100, 1) AS default_rate_pct,
-    ROUND((SUM(rate_x_funded) / SUM(funded))::numeric, 1) AS avg_int_rate_pct
+    ROUND(CAST(SUM(defaults) * 100.0 / NULLIF(SUM(judged_loans), 0) AS NUMERIC), 1) AS default_rate_pct,
+    ROUND(CAST(SUM(rate_x_funded) / SUM(funded) AS NUMERIC), 1) AS avg_int_rate_pct
 FROM loan_cube
 {FILTER}
 GROUP BY purpose
